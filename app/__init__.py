@@ -35,7 +35,7 @@ app.config["SECURITY_PASSWORD_SALT"] = os.getenv("SECURITY_PASSWORD_SALT")
 
 bcrypt = Bcrypt(app)
 csrf = CSRFProtect(app)
-mongo = PyMongo(app)
+mongo = PyMongo(app, tls=True, tlsAllowInvalidCertificates=True)
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 
