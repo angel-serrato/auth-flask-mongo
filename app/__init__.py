@@ -15,8 +15,9 @@ from datetime import datetime, timezone
 from flask_wtf.csrf import CSRFProtect
 from bson import ObjectId
 from pymongo.errors import ConnectionFailure
-from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 
 load_dotenv()
@@ -26,18 +27,19 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 
 # Gmail
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 587
-app.config["MAIL_USE_TLS"] = True
-app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+# app.config["MAIL_SERVER"] = "smtp.gmail.com"
+# app.config["MAIL_PORT"] = 587
+# app.config["MAIL_USE_TLS"] = True
+# app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+# app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 
 # Sendgrid
 # app.config["MAIL_SERVER"] = "smtp.sendgrid.org"
 # app.config["MAIL_PORT"] = 587
 # app.config["MAIL_USE_TLS"] = True
-# app.config["MAIL_USERNAME"] = "apikey"
+# app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 # app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+# app.config["MAIL_SENDER"] = os.getenv("MAIL_SENDER")
 
 app.config["SECURITY_PASSWORD_SALT"] = os.getenv("SECURITY_PASSWORD_SALT")
 
@@ -135,13 +137,6 @@ def login():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    """
-    Ruta para registrar a un nuevo usuario. Valida los datos y crea una cuenta,
-    enviando un correo de bienvenida.
-
-    Returns:
-        str: HTML del formulario de registro.
-    """
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
@@ -158,17 +153,59 @@ def register():
             "updated_at": datetime.now(timezone.utc),
         }
         mongo.db.users.insert_one(user)
-        msg = Message(
-            "Welcome to Serrato Dev.",
-            sender="angeldidierserratoarias@gmail.com",
-            recipients=[email],
+        message = Mail(
+            from_email=os.getenv("SENDGRID_SENDER"),
+            to_emails=email,
+            subject="Welcome to serrato dev",
+            html_content=render_template("emails/welcome.html"),
         )
-        msg.html = render_template("emails/welcome.html")
-        mail.send(msg)
-        # user_id = result.inserted_id
+        try:
+            sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+            response = sg.send(message)
+            print(f"Email sent with status code {response.status_code}")
+        except Exception as e:
+            print(f"Error sending email: {str(e)}")
         flash("Account created successfully! Please log in.", "success")
         return redirect(url_for("login"))
     return render_template("auth/register.html")
+
+
+# @app.route("/register", methods=["GET", "POST"])
+# def register():
+#     """
+#     Ruta para registrar a un nuevo usuario. Valida los datos y crea una cuenta,
+#     enviando un correo de bienvenida.
+
+#     Returns:
+#         str: HTML del formulario de registro.
+#     """
+#     if request.method == "POST":
+#         email = request.form["email"]
+#         password = request.form["password"]
+#         if mongo.db.users.find_one({"email": email}):
+#             flash("Email already has an account.", "danger")
+#             return redirect(url_for("register"))
+#         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+#         role_id = get_role_name("user")
+#         user = {
+#             "email": email,
+#             "password": hashed_password,
+#             "role_id": role_id,
+#             "created_at": datetime.now(timezone.utc),
+#             "updated_at": datetime.now(timezone.utc),
+#         }
+#         mongo.db.users.insert_one(user)
+#         msg = Message(
+#             "Welcome to Serrato Dev.",
+#             sender="contacto@serrato.dev",
+#             recipients=[email],
+#         )
+#         msg.html = render_template("emails/welcome.html")
+#         mail.send(msg)
+#         # user_id = result.inserted_id
+#         flash("Account created successfully! Please log in.", "success")
+#         return redirect(url_for("login"))
+#     return render_template("auth/register.html")
 
 
 @app.route("/admin")
