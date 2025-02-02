@@ -25,11 +25,19 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 
+# Gmail
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
 app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+
+# Sendgrid
+# app.config["MAIL_SERVER"] = "smtp.sendgrid.org"
+# app.config["MAIL_PORT"] = 587
+# app.config["MAIL_USE_TLS"] = True
+# app.config["MAIL_USERNAME"] = "apikey"
+# app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 
 app.config["SECURITY_PASSWORD_SALT"] = os.getenv("SECURITY_PASSWORD_SALT")
 
@@ -63,6 +71,25 @@ class User(UserMixin):
         user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
         if user_data:
             return User(user_data["_id"], user_data["email"])
+        return None
+
+
+def insert_roles():
+    roles = ["user", "admin"]
+    for role_name in roles:
+        if not mongo.db.roles.find_one({"name": role_name}):
+            mongo.db.roles.insert_one({"name": role_name})
+
+
+insert_roles()
+
+
+def get_role_name(role_id):
+    role = mongo.db.roles.find_one({"_id": role_id})
+    print(f"este es el rol dentro de getrolename {role}")
+    if role:
+        return role["name"]
+    else:
         return None
 
 
@@ -122,9 +149,11 @@ def register():
             flash("Email already has an account.", "danger")
             return redirect(url_for("register"))
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+        role_id = get_role_name("user")
         user = {
             "email": email,
             "password": hashed_password,
+            "role_id": role_id,
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
@@ -156,10 +185,15 @@ def admin():
     if user_data:
         email = user_data["email"]
         password_hash = user_data["password"]
+        role_id = user_data["role_id"]
+        print(f"este es el roleid dentro de admin {role_id}")
         created_at = user_data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+        role_name = get_role_name(role_id)
+        print(f"este el rolename despues de roleid dentro de admin {role_name}")
         return render_template(
             "admin.html",
             email=email,
+            role_name=role_name,
             password_hash=password_hash,
             created_at=created_at,
         )
