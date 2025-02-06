@@ -25,22 +25,6 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
-
-# Gmail
-# app.config["MAIL_SERVER"] = "smtp.gmail.com"
-# app.config["MAIL_PORT"] = 587
-# app.config["MAIL_USE_TLS"] = True
-# app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-# app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-
-# Sendgrid
-# app.config["MAIL_SERVER"] = "smtp.sendgrid.org"
-# app.config["MAIL_PORT"] = 587
-# app.config["MAIL_USE_TLS"] = True
-# app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-# app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-# app.config["MAIL_SENDER"] = os.getenv("MAIL_SENDER")
-
 app.config["SECURITY_PASSWORD_SALT"] = os.getenv("SECURITY_PASSWORD_SALT")
 
 bcrypt = Bcrypt(app)
@@ -87,7 +71,7 @@ insert_roles()
 
 
 def get_role_name(role_id):
-    role = mongo.db.roles.find_one({"_id": role_id})
+    role = mongo.db.roles.find_one({"_id": ObjectId(role_id)})
     print(f"este es el rol dentro de getrolename {role}")
     if role:
         return role["name"]
@@ -144,7 +128,8 @@ def register():
             flash("Email already has an account.", "danger")
             return redirect(url_for("register"))
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-        role_id = get_role_name("user")
+        role = mongo.db.roles.find_one({"name": "user"})
+        role_id = role["_id"]
         user = {
             "email": email,
             "password": hashed_password,
@@ -164,48 +149,11 @@ def register():
             response = sg.send(message)
             print(f"Email sent with status code {response.status_code}")
         except Exception as e:
-            print(f"Error sending email: {str(e)}")
+            app.logger.error(f"Error sending email {str(e)}")
+            flash("Hubo un error al enviar el correo electrónico.", "danger")
         flash("Account created successfully! Please log in.", "success")
         return redirect(url_for("login"))
     return render_template("auth/register.html")
-
-
-# @app.route("/register", methods=["GET", "POST"])
-# def register():
-#     """
-#     Ruta para registrar a un nuevo usuario. Valida los datos y crea una cuenta,
-#     enviando un correo de bienvenida.
-
-#     Returns:
-#         str: HTML del formulario de registro.
-#     """
-#     if request.method == "POST":
-#         email = request.form["email"]
-#         password = request.form["password"]
-#         if mongo.db.users.find_one({"email": email}):
-#             flash("Email already has an account.", "danger")
-#             return redirect(url_for("register"))
-#         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-#         role_id = get_role_name("user")
-#         user = {
-#             "email": email,
-#             "password": hashed_password,
-#             "role_id": role_id,
-#             "created_at": datetime.now(timezone.utc),
-#             "updated_at": datetime.now(timezone.utc),
-#         }
-#         mongo.db.users.insert_one(user)
-#         msg = Message(
-#             "Welcome to Serrato Dev.",
-#             sender="contacto@serrato.dev",
-#             recipients=[email],
-#         )
-#         msg.html = render_template("emails/welcome.html")
-#         mail.send(msg)
-#         # user_id = result.inserted_id
-#         flash("Account created successfully! Please log in.", "success")
-#         return redirect(url_for("login"))
-#     return render_template("auth/register.html")
 
 
 @app.route("/admin")
@@ -223,10 +171,8 @@ def admin():
         email = user_data["email"]
         password_hash = user_data["password"]
         role_id = user_data["role_id"]
-        print(f"este es el roleid dentro de admin {role_id}")
         created_at = user_data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
         role_name = get_role_name(role_id)
-        print(f"este el rolename despues de roleid dentro de admin {role_name}")
         return render_template(
             "admin.html",
             email=email,
@@ -254,19 +200,30 @@ def forgot():
         if user:
             token = serializer.dumps(email, salt=app.config["SECURITY_PASSWORD_SALT"])
             reset_url = url_for("reset_password", token=token, _external=True)
-            msg = Message(
-                "Recuperacion de contraseña",
-                sender="angeldidierserratoarias@gmail.com",
-                recipients=[email],
-            )
-            msg.html = render_template(
+            subject = "Recuperación de contraseña."
+            html_content = render_template(
                 "emails/reset_password.html", reset_url=reset_url
             )
-            mail.send(msg)
-            flash(
-                "Se ha enviado un correo electrónico para reestablecer tu contraseña.",
-                "info",
+            message = Mail(
+                from_email=os.getenv("SENDGRID_SENDER"),
+                to_emails=email,
+                subject=subject,
+                html_content=html_content,
             )
+            try:
+                sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+                response = sg.send(message)
+                if response.status_code == 202:
+                    flash(
+                        "Se ha enviado un correo electrónico para reestablecer tu contraseña.",
+                        "success",
+                    )
+                else:
+                    app.logger.error("Failed to send email.")
+                    flash("Hubo un error al enviar el correo electrónico.", "danger")
+            except Exception as e:
+                app.logger.error("Error al enviar el correo.")
+                flash("Hubo un error al envier el correo electrónico.", "danger")
             return redirect(url_for("login"))
         else:
             flash("No existe una cuenta asociada a ese correo electrónico.", "danger")
