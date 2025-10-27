@@ -19,10 +19,10 @@ A minimal user authentication web application built with Flask and MongoDB. It i
 ## Repository structure
 
 - `app/` — Flask application package
-	- `__init__.py` — app factory and configuration
-	- `models.py` — User/data models and DB helpers
-	- `config.py` — configuration classes
-	- `templates/` — Jinja2 templates (views and email templates)
+  - `__init__.py` — app factory and configuration
+  - `models.py` — User/data models and DB helpers
+  - `config.py` — configuration classes
+  - `templates/` — Jinja2 templates (views and email templates)
 - `requirements.txt` — Python dependencies
 
 ## Quickstart (local)
@@ -49,11 +49,11 @@ Create a `.env` file or export the variables in your shell. Common variables use
 - `SECRET_KEY` — a random secret for session and token signing
 - `MONGO_URI` — connection string to your MongoDB instance (e.g., `mongodb://localhost:27017/auth-db`)
 - Mail settings (if you want password reset emails to work):
-	- `MAIL_SERVER`
-	- `MAIL_PORT`
-	- `MAIL_USERNAME`
-	- `MAIL_PASSWORD`
-	- `MAIL_USE_TLS` or `MAIL_USE_SSL`
+  - `MAIL_SERVER`
+  - `MAIL_PORT`
+  - `MAIL_USERNAME`
+  - `MAIL_PASSWORD`
+  - `MAIL_USE_TLS` or `MAIL_USE_SSL`
 
 Example (bash):
 
@@ -111,12 +111,3 @@ Feel free to open issues or pull requests. Small improvements that are helpful:
 ## License
 
 This project is provided as-is for learning purposes. Add a license file if you plan to redistribute.
-
----
-If you want, I can also:
-
-- add a short `dev` Docker Compose for local Mongo + Flask
-- create a `.env.example` file with the environment variables
-- add a minimal test using pytest to validate the registration/login flow
-
-Tell me which of those you'd like and I'll implement it.
